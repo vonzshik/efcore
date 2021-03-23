@@ -30,15 +30,15 @@ namespace Microsoft.EntityFrameworkCore.Metadata
         /// </summary>
         [EntityFrameworkInternal]
         public SlimDbFunctionParameter(
-            SlimDbFunction function,
             string name,
+            SlimDbFunction function,
             Type clrType,
             bool propagatesNullability,
             string storeType,
             RelationalTypeMapping? typeMapping)
         {
-            Function = function;
             _name = name;
+            Function = function;
             _clrType = clrType;
             _propagatesNullability = propagatesNullability;
             _storeType = storeType;

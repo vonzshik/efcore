@@ -2578,7 +2578,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
                 navigation, entityType, otherEntityType);
 
         /// <summary>
-        ///     The requested configuration is not stored in the read-optimized model, please use 'DbContext.DesignTimeModel'.
+        ///     The requested configuration is not stored in the read-optimized model, please use 'DbContext.GetService&lt;IDesignTimeModel&gt;().Model'.
         /// </summary>
         public static string SlimModelMissingData
             => GetString("SlimModelMissingData");

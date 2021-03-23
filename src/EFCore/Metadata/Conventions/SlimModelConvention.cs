@@ -50,9 +50,11 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         /// <returns> An optimized model. </returns>
         protected virtual SlimModel Create(IModel model)
         {
-            var slimModel = new SlimModel(model.ModelDependencies!, ((IRuntimeModel)model).SkipDetectChanges);
+            var slimModel = new SlimModel();
+            slimModel.SetSkipDetectChanges(((IRuntimeModel)model).SkipDetectChanges);
+            ((IModel)slimModel).ModelDependencies = model.ModelDependencies!;
 
-            var entityTypes = Sort(model.GetEntityTypes());
+            var entityTypes = model.GetEntityTypesInHierarchicalOrder();
             var entityTypePairs = new List<(IEntityType Source, SlimEntityType Target)>(entityTypes.Count);
 
             foreach (var entityType in entityTypes)
@@ -195,23 +197,11 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             }
         }
 
-        private static IReadOnlyList<IEntityType> Sort(IEnumerable<IEntityType> entityTypes)
-        {
-            var entityTypeGraph = new Multigraph<IEntityType, int>();
-            entityTypeGraph.AddVertices(entityTypes);
-            foreach (var entityType in entityTypes.Where(et => et.BaseType != null))
-            {
-                entityTypeGraph.AddEdge(entityType.BaseType!, entityType, 0);
-            }
-
-            return entityTypeGraph.TopologicalSort();
-        }
-
         private SlimEntityType Create(IEntityType entityType, SlimModel model)
             => model.AddEntityType(entityType.Name,
                 entityType.ClrType,
-                entityType.HasSharedClrType,
                 entityType.BaseType == null ? null : model.FindEntityType(entityType.BaseType.Name)!,
+                entityType.HasSharedClrType,
                 entityType.GetDiscriminatorPropertyName(),
                 entityType.GetChangeTrackingStrategy(),
                 entityType.FindIndexerPropertyInfo(),
@@ -411,11 +401,11 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             => (navigation.IsOnDependent ? slimForeigKey.DeclaringEntityType : slimForeigKey.PrincipalEntityType)
                 .AddNavigation(
                     navigation.Name,
+                    slimForeigKey,
+                    navigation.IsOnDependent,
                     navigation.ClrType,
                     navigation.PropertyInfo,
                     navigation.FieldInfo,
-                    slimForeigKey,
-                    navigation.IsOnDependent,
                     navigation.GetPropertyAccessMode(),
                     navigation.IsEagerLoaded);
 
@@ -442,13 +432,13 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         private SlimSkipNavigation Create(ISkipNavigation navigation, SlimEntityType slimEntityType)
             => slimEntityType.AddSkipNavigation(
                 navigation.Name,
-                navigation.ClrType,
-                navigation.PropertyInfo,
-                navigation.FieldInfo,
                 slimEntityType.Model.FindEntityType(navigation.TargetEntityType.Name)!,
                 GetForeignKey(navigation.ForeignKey, slimEntityType.Model.FindEntityType(navigation.ForeignKey.DeclaringEntityType.Name)!),
                 navigation.IsCollection,
                 navigation.IsOnDependent,
+                navigation.ClrType,
+                navigation.PropertyInfo,
+                navigation.FieldInfo,
                 navigation.GetPropertyAccessMode(),
                 navigation.IsEagerLoaded);
 
