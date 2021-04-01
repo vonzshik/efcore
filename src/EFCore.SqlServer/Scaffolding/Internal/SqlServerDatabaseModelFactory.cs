@@ -492,6 +492,16 @@ SELECT
     [t].[is_memory_optimized]";
             }
 
+            if (supportsTemporalTable)
+            {
+                // TODO: is it possible to have more than one of these generated columns per table? - TEST!!!
+                commandText += @",
+    [t].[temporal_type],
+    (SELECT [t2].[name] FROM [sys].[tables] AS t2 WHERE [t2].[object_id] = [t].[history_table_id]) AS [history_table_name],
+	(SELECT [c].[name] FROM [sys].[columns] as [c] WHERE [c].[object_id] = [t].[object_id] AND [c].[generated_always_type] = 1) as [period_start_column],
+	(SELECT [c].[name] FROM [sys].[columns] as [c] WHERE [c].[object_id] = [t].[object_id] AND [c].[generated_always_type] = 2) as [period_end_column]";
+            }
+
             commandText += @"
 FROM [sys].[tables] AS [t]
 LEFT JOIN [sys].[extended_properties] AS [e] ON [e].[major_id] = [t].[object_id] AND [e].[minor_id] = 0 AND [e].[class] = 1 AND [e].[name] = 'MS_Description'";
@@ -538,6 +548,15 @@ SELECT
             {
                 viewCommandText += @",
     CAST(0 AS bit) AS [is_memory_optimized]";
+            }
+
+            if (supportsTemporalTable)
+            {
+                viewCommandText += @",
+    1 AS [temporal_type],
+    NULL AS [history_table_name],
+    NULL AS [period_start_column],
+    NULL AS [period_end_column]";
             }
 
             viewCommandText += @"
@@ -587,6 +606,23 @@ WHERE "
                         }
                     }
 
+                    if (supportsTemporalTable)
+                    {
+                        if (reader.GetValueOrDefault<int>("temporal_type") == 2)
+                        {
+                            table[SqlServerAnnotationNames.IsTemporal] = true;
+
+                            var historyTableName = reader.GetValueOrDefault<string>("history_table_name");
+                            table[SqlServerAnnotationNames.TemporalHistoryTableName] = historyTableName;
+
+                            var periodStartColumnName = reader.GetValueOrDefault<string>("period_start_column");
+                            table[SqlServerAnnotationNames.TemporalPeriodStartColumnName] = periodStartColumnName;
+
+                            var periodEndColumnName = reader.GetValueOrDefault<string>("period_end_column");
+                            table[SqlServerAnnotationNames.TemporalPeriodEndColumnName] = periodEndColumnName;
+                        }
+                    }
+
                     tables.Add(table);
                 }
             }
@@ -629,8 +665,15 @@ SELECT
     [cc].[is_persisted] AS [computed_is_persisted],
     CAST([e].[value] AS nvarchar(MAX)) AS [comment],
     [c].[collation_name],
-    [c].[is_sparse]
-FROM
+    [c].[is_sparse]";
+
+            if (SupportsTemporalTable())
+            {
+                commandText += @",
+    [c].[generated_always_type]";
+            }    
+
+            commandText += @"FROM
 (
     SELECT[v].[name], [v].[object_id], [v].[schema_id]
     FROM [sys].[views] v WHERE ";
@@ -692,6 +735,7 @@ ORDER BY [table_schema], [table_name], [c].[column_id]";
                     var comment = dataRecord.GetValueOrDefault<string>("comment");
                     var collation = dataRecord.GetValueOrDefault<string>("collation_name");
                     var isSparse = dataRecord.GetValueOrDefault<bool>("is_sparse");
+                    var generatedAlwaysType = SupportsTemporalTable() ? dataRecord.GetValueOrDefault<byte>("generated_always_type") : 0;
 
                     _logger.ColumnFound(
                         DisplayName(tableSchema, tableName),
@@ -753,6 +797,15 @@ ORDER BY [table_schema], [table_name], [c].[column_id]";
                     if (isSparse)
                     {
                         column[SqlServerAnnotationNames.Sparse] = true;
+                    }
+
+                    if (generatedAlwaysType == 1)
+                    {
+                        column[SqlServerAnnotationNames.IsTemporalPeriodStartColumn] = true;
+                    }
+                    else if (generatedAlwaysType == 2)
+                    {
+                        column[SqlServerAnnotationNames.IsTemporalPeriodEndColumn] = true;
                     }
 
                     table.Columns.Add(column);
