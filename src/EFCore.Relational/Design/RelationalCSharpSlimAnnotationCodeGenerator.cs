@@ -559,9 +559,13 @@ namespace Microsoft.EntityFrameworkCore.Design
                 case 0:
                     return @string;
                 case 1:
-                    return char.ToUpper(@string[0]).ToString();
+                    return char.ToUpperInvariant(@string[0]).ToString();
                 default:
-                    return char.ToUpper(@string[0]) + @string[1..];
+                    if (char.IsUpper(@string[0]))
+                    {
+                        return @string;
+                    }
+                    return char.ToUpperInvariant(@string[0]) + @string[1..];
             }
         }
     }

@@ -170,7 +170,7 @@ namespace Microsoft.EntityFrameworkCore.Scaffolding.Internal
                         var firstChar = variableName[0] == '@' ? variableName[1] : variableName[0];
                         var entityClassName = firstChar == '_'
                             ? EntityTypeSuffix + variableName[1..]
-                            : char.ToUpper(firstChar) + variableName[1..] + EntityTypeSuffix;
+                            : char.ToUpperInvariant(firstChar) + variableName[1..] + EntityTypeSuffix;
 
                         entityTypeIds[entityType] = (variableName, entityClassName);
 

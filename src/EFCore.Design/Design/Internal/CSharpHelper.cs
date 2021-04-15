@@ -267,8 +267,13 @@ namespace Microsoft.EntityFrameworkCore.Design.Internal
             }
 
             var first = builder[index: 0];
+            if (char.IsUpper(first) == capitalize)
+            {
+                return builder;
+            }
+
             builder.Remove(startIndex: 0, length: 1)
-                .Insert(index: 0, value: capitalize ? char.ToUpper(first) : char.ToLower(first));
+                .Insert(index: 0, value: capitalize ? char.ToUpperInvariant(first) : char.ToLowerInvariant(first));
 
             return builder;
         }
